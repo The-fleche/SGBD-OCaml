@@ -72,11 +72,11 @@ type fd = (string list) * (string list) ;;
 
    @raises     : Aucune.
 *)
-let value_matches_coltype (v : dbvalue) ((dbtype, nullable) : coltype) : bool =
+let value_matches_coltype (v : dbvalue) ((db_type, nullable) : coltype) : bool =
   match v with
-  | VNull   -> nullable
-  | VInt  _ -> dbtype = TInt
-  | VText _ -> dbtype = TText
+  | VNull   -> nullable          (*Null est accepté ssi nullable est true*)
+  | VInt  _ -> db_type = TInt    (*les valeurs entières sont acceptées ssi le type de la colonne est entier *)
+  | VText _ -> db_type = TText   (*les valeurs textuelles sont acceptées ssi le type de la colonne est textuel*)
 
 (*
    Type        : row -> schema -> bool
@@ -116,6 +116,7 @@ let rec row_matches_schema (row : row) (schema : schema) : bool =
    @raises     : Aucune
 *)
 let has_duplicate_names (schema : schema) : bool = 
+   (*On trie la liste pour obtenir une complexité finale moindre qu'un double parcours de liste qui serait en O(n²) alors qu'en triant puis en parcourant dans la liste triée on est en O(nlog(n))*)
    match List.sort compare schema with 
      | [] -> false
      | [_] -> false
@@ -159,9 +160,16 @@ let insert (tbl : table) (row : row) : table =
    else tbl
 
 ;;
+(* 
+   Type        : table -> table -> table
 
-(* [prod tbl1 tbl2] effectue le produit cartésien des tables [tbl1] et [tbl2]
- *)                   
+   @requires   : [tbl1] de type table
+                 [tbl2] de type table
+
+   @ensures    : effectue le produit cartésien des tables [tbl1] et [tbl2]
+
+   @raises     : Aucune
+*)
 let prod (tbl1 : table) (tbl2 : table) : table =
   let combined_schema = tbl1.cols @ tbl2.cols in
   (* Pour chaque ligne r1 de tbl1, on la concatène avec chaque ligne r2 de tbl2 *)
@@ -173,9 +181,85 @@ let prod (tbl1 : table) (tbl2 : table) : table =
   { cols = combined_schema; rows = combined_rows }
 ;;
 
-(* [projection tbl fields] effectue la projection suivant la liste de
-   champs [fields] de la table [tbl] *)
-let projection tbl fields = failwith "TODO" ;;
+(* 
+   Type        : string -> list -> int
+
+   @requires   : [nom] de type string
+                 [l] de type string list
+
+   @ensures    :  renvoie l'indice de [nom] dans la liste [l] si [nom] existe dans [l]
+                  renvoie -1 si [nom] n'est pas dans [l]
+
+   @raises     : Aucune
+*)
+let index_of (nom : string) (l: string list) = 
+   let rec idx_of nom l n =
+      match l with 
+      | [] -> -1 (*Si on a aucun match alors on renvoie une valeur négative : -1*)
+      | title::reste -> 
+         if title = nom then n (*Si on a trouvé un match, on renvoie l'index*)
+         else idx_of nom reste (n+1) (*Sinon on regarde pour la valeur suivante*)
+   in 
+   idx_of nom l 0
+
+
+(* 
+   Type        : a' liste -> int -> 'a 
+
+   @requires   : [liste] de type liste
+                 [n] de type int, un entier positif
+
+   @ensures    : renvoie la valeur d'indice n dans [liste] si n est inférieur à la taille de la liste [liste]
+
+   @raises     : soulève l'erreur "Index out of range" si n est plus grand que la taille de la liste [liste]
+*)
+let rec get_value_liste (liste : list) (n : int) =
+   match liste with 
+     | [] -> failwith "Index out of range"
+     | head::tail -> 
+         if n = 0 then head
+         else get_value_liste tail (n-1)
+
+(* 
+   Type        : int list -> row -> int list
+
+   @requires   : [indices] de type int list
+                 [row] de type row
+
+   @ensures    : Retourne la sous-liste de [row] formée des valeurs aux
+                  positions listées dans [indices], dans l'ordre de [indices].
+                  Si [indices] est vide, retourne [[]]
+
+   @raises     : soulève l'erreur "Index out of range" si il y a un element dans indices qui est plus grand que la taille de la liste [liste]
+*)
+let project_row (indices : int list) (row : row) : row =
+  List.map (fun i -> get_value_liste row i) indices
+
+(* 
+   Type        : table -> string list -> table
+
+   @requires   : [tbl1] de type table
+                 [fields] de type string list
+
+   @ensures    : effectue la projection suivant la liste de champs [fields] de la table [tbl]
+
+   @raises     : soulève l'erreur "Champ inconnu" s'il y a un champ de [fields] non présent dans la table [tbl]
+*)
+let projection (tbl : table) (fields : string list) = 
+   (*On détermine les indices des colonnes de la liste des champs de projection*)
+   let indices = List.map (fun f -> match index_of f tbl.cols with 
+     | -1 -> failwith ("Champ inconnu : %s", f)  (*On a pas trouvé de match donc on soulève une erreur*)
+     | i -> i        (*Si on a trouvé un match alors on renvoie l'indice*)
+   ) fields in
+
+   (*On récupère les colonnes de la table associées à ces indices*)
+   let new_cols = List.map (fun i -> get_value_liste tbl.cols i) indices in 
+   (*On récupère les colonnes des rows associées à ces indices*)
+   let new_rows = List.map (project_row indices) tbl.rows in
+   (*On renvoie la liste des colonnes projetés avec leur lignes lignes de valeurs associées*)
+   {cols = new_cols; rows = new_rows}
+   ;;
+
 
 (* [restrict tbl test] effectue la restriction des données présentes
    dans la table [tbl] en accord avec la fonction [test]. On ne garde
