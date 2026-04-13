@@ -70,7 +70,7 @@ type fd = (string list) * (string list) ;;
                - [VInt _]  est accepté ssi le dbtype vaut [TInt]
                - [VText _] est accepté ssi le dbtype vaut [TText]
 
-   @raises     : Aucune.
+   @raises     : Aucune
 *)
 let value_matches_coltype (v : dbvalue) ((db_type, nullable) : coltype) : bool =
   match v with
@@ -93,7 +93,7 @@ let value_matches_coltype (v : dbvalue) ((db_type, nullable) : coltype) : bool =
                Retourne [false] si les longueurs diffèrent ou si une valeur
                est incompatible avec son type déclaré
 
-   @raises     : Aucune.
+   @raises     : Aucune
 *)
 let rec row_matches_schema (row : row) (schema : schema) : bool = 
   match row, schema with 
@@ -192,7 +192,7 @@ let prod (tbl1 : table) (tbl2 : table) : table =
 
    @raises     : Aucune
 *)
-let index_of (nom : string) (l: string list) = 
+let index_of (nom : string) (l: string list) : int = 
    let rec idx_of nom l n =
       match l with 
       | [] -> -1 (*Si on a aucun match alors on renvoie une valeur négative : -1*)
@@ -213,7 +213,7 @@ let index_of (nom : string) (l: string list) =
 
    @raises     : soulève l'erreur "Index out of range" si n est plus grand que la taille de la liste [liste]
 *)
-let rec get_value_liste (liste : list) (n : int) =
+let rec get_value_liste (liste : 'a list) (n : int) : 'a =
    match liste with 
      | [] -> failwith "Index out of range"
      | head::tail -> 
@@ -245,7 +245,7 @@ let project_row (indices : int list) (row : row) : row =
 
    @raises     : soulève l'erreur "Champ inconnu" s'il y a un champ de [fields] non présent dans la table [tbl]
 *)
-let projection (tbl : table) (fields : string list) = 
+let projection (tbl : table) (fields : string list) : table = 
    (*On détermine les indices des colonnes de la liste des champs de projection*)
    let indices = List.map (fun f -> match index_of f tbl.cols with 
      | -1 -> failwith ("Champ inconnu : %s", f)  (*On a pas trouvé de match donc on soulève une erreur*)
@@ -261,12 +261,43 @@ let projection (tbl : table) (fields : string list) =
    ;;
 
 
-(* [restrict tbl test] effectue la restriction des données présentes
-   dans la table [tbl] en accord avec la fonction [test]. On ne garde
-   dans le résultat que les lignes pour lesquelles [test] retourne
-   [true].  *)
-let restrict tbl f = failwith "TODO" ;;
-  
+
+(* 
+   Type        : table -> (row -> bool) -> table
+
+   @requires   : [tbl] de type table
+                 [f] de type row -> bool
+
+   @ensures    : effectue la restriction des données présentes
+   dans la table [tbl] en accord avec la fonction [f]. On ne garde
+   dans le résultat que les lignes pour lesquelles [f] retourne
+   [true]. 
+
+   @raises     : Les exceptions soulevées par f le sont aussi pour cette fonction
+*)
+let restrict (tbl : table) (f : row -> bool) : table= 
+   {tbl with rows = List.filter f tbl.rows}
+;;
+
+
+
+(* 
+   Type        : 'a list -> 'a list list
+
+   @requires   : [liste] de type 'a list
+
+   @ensures    : renvoie l'ensemble des sous-ensembles de liste
+
+   @raises     : Aucune 
+*)
+let rec subsets (liste : 'a list) : 'a list list = 
+   match liste with 
+     | [] -> [[]]
+     | x::xs -> 
+     let reste = subsets xs in
+     reste @ List.map (fun s -> x::s) reste 
+
+
 (* [compute_deps tbl] retourne TOUTES les dépendances fonctionnelles
    trouvées en étudiant les données présentes dans [tbl] *)
 let compute_deps tbl = failwith "TODO" ;;
