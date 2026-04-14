@@ -298,9 +298,105 @@ let rec subsets (liste : 'a list) : 'a list list =
      reste @ List.map (fun s -> x::s) reste 
 
 
+(* 
+    Type        : 'a list -> 'a list list
+
+    @requires   : [lst] est une liste quelconque.
+
+    @ensures    : Retourne la liste de tous les sous-ensembles non vides de
+                  [lst]. Le résultat contient 2^n - 1 éléments.
+
+    @raises     : [Stack_overflow] (propagé depuis [subsets]) si [lst] est
+                  de longueur excessive. 
+*)
+let nonempty_subsets (lst : 'a list) : 'a list list =
+  List.filter (fun s -> s <> []) (subsets lst)
+
+
+(*    
+    Type        : schema -> string list
+
+    @requires   : [schema] est une liste quelconque.
+
+    @ensures    : Retourne la liste des noms de colonnes de [schema] dans
+                  le même ordre que [schema]. Retourne [[]] si [schema] est
+                  vide.
+
+    @raises     : Aucune
+*)
+let col_names (schema : schema) : string list =
+  List.map fst schema
+
+
+(*  
+    Type        : schema -> row -> string list -> dbvalue list
+
+    @requires   : [schema] est le schéma associé à [row] ;
+                  [List.length row = List.length schema] ;
+                  tous les noms de [fields] sont présents dans [schema].
+
+    @ensures    : Retourne la liste des valeurs de [row] correspondant aux
+                  colonnes nommées dans [fields], dans l'ordre de [fields].
+                  Si un nom est absent du schéma (violation de @requires),
+                  la valeur [VNull] est silencieusement substituée.
+
+    @raises     : Aucune 
+*)
+let values_for_cols (schema : schema) (row : row) (fields : string list)
+  : dbvalue list =
+  List.map (fun name ->
+    match index_of name schema with
+    | None   -> VNull
+    | Some i -> List.nth row i
+  ) fields
+
+
+(*  Type        : table -> string list -> string list -> bool
+
+    @requires   : [tbl] est une table valide au sens de [check_table] ;
+                  tous les noms de [lhs] et [rhs] sont présents dans
+                  [tbl.cols].
+
+    @ensures    : Retourne [true] ssi la dépendance fonctionnelle
+                  [lhs -> rhs] est satisfaite par les données de [tbl] :
+                  pour toute paire de lignes (r1, r2), si r1 et r2
+                  coïncident sur [lhs] alors elles coïncident sur [rhs].
+                  Retourne [true] si [tbl.rows] est vide ou singleton
+                  (condition universelle vacuellement vraie).
+
+    @raises     : Aucune
+*)
+let fd_holds (tbl : table) (lhs : string list) (rhs : string list) : bool =
+  List.for_all (fun r1 ->
+    List.for_all (fun r2 ->
+      if values_for_cols tbl.cols r1 lhs = values_for_cols tbl.cols r2 lhs
+      then values_for_cols tbl.cols r1 rhs = values_for_cols tbl.cols r2 rhs
+      else true
+    ) tbl.rows
+  ) tbl.rows
+
+
+  
+let compute_deps (tbl : table) : fd list =
+  let names = col_names tbl.cols in
+  let all_lhs = nonempty_subsets names in
+  
+  List.concat_map (fun lhs ->
+    (* 1. On prépare les candidats à droite *)
+    let potential_rhs = List.filter (fun name -> not (List.mem name lhs)) names in
+    
+    (* 2. On FILTRE pour ne garder que les noms où la DF est vraie *)
+    let valid_rhs_names = List.filter (fun rhs_name -> 
+      fd_holds tbl lhs [rhs_name]
+    ) potential_rhs in
+    
+    (* 3. On MAPPE pour transformer chaque nom valide en format (lhs, [rhs]) *)
+    List.map (fun rhs_name -> (lhs, [rhs_name])) valid_rhs_names
+
+  ) all_lhs
+
 (* [compute_deps tbl] retourne TOUTES les dépendances fonctionnelles
    trouvées en étudiant les données présentes dans [tbl] *)
-let compute_deps tbl = failwith "TODO" ;;
 
 (* [compute_elementary_deps tbl] retourne TOUTES les dépendances
    fonctionnelles élémentaires trouvées en étudiant les données
