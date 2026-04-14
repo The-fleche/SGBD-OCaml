@@ -158,8 +158,9 @@ let insert (tbl : table) (row : row) : table =
    if row_matches_schema row tbl.cols  (*on vérifie si les valeurs de la ligne sont compatibles avec la table*)
    then { tbl with rows = tbl.rows @ [row] }
    else tbl
-
 ;;
+
+
 (* 
    Type        : table -> table -> table
 
@@ -180,6 +181,7 @@ let prod (tbl1 : table) (tbl2 : table) : table =
   in
   { cols = combined_schema; rows = combined_rows }
 ;;
+
 
 (* 
    Type        : string -> list -> int
@@ -220,6 +222,7 @@ let rec get_value_liste (liste : 'a list) (n : int) : 'a =
          if n = 0 then head
          else get_value_liste tail (n-1)
 
+
 (* 
    Type        : int list -> row -> int list
 
@@ -234,6 +237,7 @@ let rec get_value_liste (liste : 'a list) (n : int) : 'a =
 *)
 let project_row (indices : int list) (row : row) : row =
   List.map (fun i -> get_value_liste row i) indices
+
 
 (* 
    Type        : table -> string list -> table
@@ -261,7 +265,6 @@ let projection (tbl : table) (fields : string list) : table =
    ;;
 
 
-
 (* 
    Type        : table -> (row -> bool) -> table
 
@@ -278,7 +281,6 @@ let projection (tbl : table) (fields : string list) : table =
 let restrict (tbl : table) (f : row -> bool) : table= 
    {tbl with rows = List.filter f tbl.rows}
 ;;
-
 
 
 (* 
@@ -301,13 +303,13 @@ let rec subsets (liste : 'a list) : 'a list list =
 (* 
     Type        : 'a list -> 'a list list
 
-    @requires   : [lst] est une liste quelconque.
+    @requires   : [lst] est une liste quelconque
 
     @ensures    : Retourne la liste de tous les sous-ensembles non vides de
-                  [lst]. Le résultat contient 2^n - 1 éléments.
+                  [lst]. Le résultat contient 2^n - 1 éléments
 
     @raises     : [Stack_overflow] (propagé depuis [subsets]) si [lst] est
-                  de longueur excessive. 
+                  de longueur excessive
 *)
 let nonempty_subsets (lst : 'a list) : 'a list list =
   List.filter (fun s -> s <> []) (subsets lst)
@@ -316,11 +318,11 @@ let nonempty_subsets (lst : 'a list) : 'a list list =
 (*    
     Type        : schema -> string list
 
-    @requires   : [schema] est une liste quelconque.
+    @requires   : [schema] est une liste quelconque
 
     @ensures    : Retourne la liste des noms de colonnes de [schema] dans
                   le même ordre que [schema]. Retourne [[]] si [schema] est
-                  vide.
+                  vide
 
     @raises     : Aucune
 *)
@@ -331,27 +333,31 @@ let col_names (schema : schema) : string list =
 (*  
     Type        : schema -> row -> string list -> dbvalue list
 
-    @requires   : [schema] est le schéma associé à [row] ;
-                  [List.length row = List.length schema] ;
-                  tous les noms de [fields] sont présents dans [schema].
+    @requires   : [schema] est le schéma associé à [row] 
+                  [row] et [schema] sont de même longueur 
+                  tous les noms de [fields] sont présents dans [schema]
 
     @ensures    : Retourne la liste des valeurs de [row] correspondant aux
                   colonnes nommées dans [fields], dans l'ordre de [fields].
-                  Si un nom est absent du schéma (violation de @requires),
-                  la valeur [VNull] est silencieusement substituée.
+                  Si un nom est absent du schéma, la valeur associée devient [VNull].
 
     @raises     : Aucune 
 *)
-let values_for_cols (schema : schema) (row : row) (fields : string list)
-  : dbvalue list =
+let values_for_cols (schema : string list) (row : dbvalue list) (fields : string list) : dbvalue list =
   List.map (fun name ->
-    match index_of name schema with
-    | None   -> VNull
-    | Some i -> List.nth row i
+    (* 1. On cherche l'indice d'un champs field*)
+    let i = index_of name schema in
+    (* 2. On teste si l'indice est valide (-1 signifie "pas trouvé") *)
+    if i = -1 then       (*Ce cas ne devrait pas se produire si les préconditions sont respectées*)
+      VNull (* On renvoie une valeur vide si le champ n'existe pas *)
+    else 
+      (* 3. On récupère la valeur dans la ligne row *)
+      get_value_liste row i
   ) fields
 
 
-(*  Type        : table -> string list -> string list -> bool
+(*  
+    Type        : table -> string list -> string list -> bool
 
     @requires   : [tbl] est une table valide au sens de [check_table] ;
                   tous les noms de [lhs] et [rhs] sont présents dans
@@ -376,32 +382,59 @@ let fd_holds (tbl : table) (lhs : string list) (rhs : string list) : bool =
   ) tbl.rows
 
 
-  
+(*
+    Type        : table -> fd list 
+
+    @requires   : [tbl] est une table valide au sens de [check_table] ;
+                  
+    @ensures    : retourne TOUTES les dépendances fonctionnelles
+                  trouvées en étudiant les données présentes dans [tbl] 
+
+    @raises     : [Stack_overflow] (propagé depuis [noempty_subsets]) si tbl.cols est
+                  de longueur excessive
+*)
 let compute_deps (tbl : table) : fd list =
+   (*On récupère les noms de colonnes*)
   let names = col_names tbl.cols in
+  (*On génère tous les ensembles candidats possible de lhs*)
   let all_lhs = nonempty_subsets names in
   
   List.concat_map (fun lhs ->
-    (* 1. On prépare les candidats à droite *)
+    (* On prépare les candidats à droite *)
     let potential_rhs = List.filter (fun name -> not (List.mem name lhs)) names in
     
-    (* 2. On FILTRE pour ne garder que les noms où la DF est vraie *)
+    (*On filtre pour ne garder que les noms où la DF est vraie *)
     let valid_rhs_names = List.filter (fun rhs_name -> 
       fd_holds tbl lhs [rhs_name]
     ) potential_rhs in
     
-    (* 3. On MAPPE pour transformer chaque nom valide en format (lhs, [rhs]) *)
+    (*On mappe pour transformer chaque nom valide en format (lhs, [rhs]) que la fonction renvoie*)
     List.map (fun rhs_name -> (lhs, [rhs_name])) valid_rhs_names
 
   ) all_lhs
 
-(* [compute_deps tbl] retourne TOUTES les dépendances fonctionnelles
-   trouvées en étudiant les données présentes dans [tbl] *)
+
+let has_no_subset_df (tbl : table) ((lhs, rhs): fd) : bool =
+   (*On prend les sous-ensembles non vides qui sont des potentiels FD*)
+   let subset_potential_df_not_empty = nonempty_subsets lhs in
+   (*On prend uniquement les sous-ensembles stricts*)
+   let proper_subsets = List.filter (fun s -> s <> lhs) subset_potential_df_not_empty in
+   (*On filtre pour garder uniquement les sous-ensembles qui sont des df*)
+   let subset_df = List.filter (fun s -> fd_holds tbl s rhs_name) proper_subsets
+   in 
+   (*si l'ensemble des sous-ensembles est vide alors on retourne true, sinon false*)
+   subset_df = [] 
+
 
 (* [compute_elementary_deps tbl] retourne TOUTES les dépendances
    fonctionnelles élémentaires trouvées en étudiant les données
    présentes dans [tbl] *)
-let compute_elementary_deps tbl = failwith "TODO" ;;
+let compute_elementary_deps tbl = 
+   (* 1. on récupère l'ensemble des DF *)
+   let df_liste = compute_deps tbl in 
+   (* 2. On filtre la liste des DF en ne gardant uniquement celles dont aucun de ses sous-ensembles n'est une DF *)
+   List.filter (fun df -> has_no_subset_df tbl df) df_liste
+;;
 
 
 (* [normalization_level tbl] retourne le niveau de normalisation de
