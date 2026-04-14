@@ -460,7 +460,7 @@ let has_no_subset_df (tbl : table) ((lhs, rhs): fd) : bool =
 
     @raises     : Aucun
 *)
-let compute_elementary_deps tbl = 
+let compute_elementary_deps (tbl : table) : fd list = 
    (* 1. on récupère l'ensemble des DF *)
    let df_liste = compute_deps tbl in 
    (* 2. On filtre la liste des DF en ne gardant uniquement celles dont aucun de ses sous-ensembles n'est une DF *)
@@ -468,6 +468,62 @@ let compute_elementary_deps tbl =
 ;;
 
 
+(*
+    Type        : table -> string list -> bool
+
+    @requires   : [tbl] est une table valide au sens de [check_table]
+                  [lhs] une liste de nom de colonnes de tbl
+
+    @ensures    : Retourne [true] si [lhs] est une clée candidate
+
+    @raises     : Aucun
+*)
+let is_key (tbl : table) (lhs : string list) : bool = 
+   fd_holds tbl lhs (col_names tbl.cols)
+
+let rec appartient elmt l = 
+   match l with 
+      | [] -> false
+      | head::tail -> head=elmt || appartient elmt tail
+
+
+(* Renvoie [true] si l1 est inclu dans l2 *)
+let is_inclued (l1: string list) (l2 : string list) : bool = 
+   List.for_all (fun elmt -> appartient elmt l2) l1
+
+
+let candidate_keys (tbl : table) : string list list = 
+   let col_names_list = col_names tbl.cols in 
+   (* On récupère toute les df = (lhs, rhs)*)
+   let all_deps = compute_deps tbl in
+   (* On récupère l'ensemble des lhs*)
+   let all_lhs = List.map (fun (lhs, _) -> lhs) all_deps in 
+   (* On garde uniquement celles qui détermine toutes les colonnes *)
+   let maybe_candidate_keys = List.filter (fun lhs -> is_key tbl lhs) all_lhs
+   (* On garde uniquement les candidates minimales qui sont en faite les clées candidates *)
+   let candidates = List.filter ( fun m_key -> 
+      (* On regarde si ce n'est pas une augmentation d'une autre candidate de clée candidates *)
+      List.for_all (fun other_key -> other_key = m_key || not is_inclued other_key m_key) maybe_candidates_keys
+   ) maybe_candidates_keys in 
+   if candidates = [] then 
+      [col_names_list]
+   else 
+      candidates
+
+
 (* [normalization_level tbl] retourne le niveau de normalisation de
    [tbl] sous forme d'un entier.  *)
-let normalization_level tbl = failwith "TODO" ;;
+let normalization_level (tbl : table) : int = failwith "TODO" ;;
+   (* Toute les tables valides sont 1FN au minimum de par l'implémentation de dbtype et dbvalue  *)
+   let level = 1 in 
+   (* donc on a juste à tester les conditions pour les formes normales 2FN et 3FN en incrémentant de la valeur de retour à chaque condition rempli et s'arrêter dès qu'une condition d'une forme normale n'est pas respectée.  *)
+   let clees_candidates = candidate_keys tbl in 
+
+
+
+(* Donc pour qu'une fonction soit 2FN il faut que tout attribut non clée dépende de l'intégralité de la clé et pas d'un sous ensemble de la clée
+-> on peut utiliser has_subset_df je pense 
+
+Pour la 3FN il faut en plus qu'il n'ait pas d'attribut n'appartenant pas à la clé qui dépende de la clé par transitivité (pas de dépendance par transititvité) ou il n'existe pas de DF (lhs, rhs) tq lhs inter clé = [] *)
+
+
