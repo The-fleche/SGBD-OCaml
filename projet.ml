@@ -239,6 +239,21 @@ let project_row (indices : int list) (row : row) : row =
   List.map (fun i -> get_value_liste row i) indices
 
 
+(*    
+    Type        : schema -> string list
+
+    @requires   : [schema] est une liste quelconque
+
+    @ensures    : Retourne la liste des noms de colonnes de [schema] dans
+                  le même ordre que [schema]. Retourne [[]] si [schema] est
+                  vide
+
+    @raises     : Aucune
+*)
+let col_names (schema : schema) : string list =
+  List.map fst schema
+
+
 (* 
    Type        : table -> string list -> table
 
@@ -251,8 +266,9 @@ let project_row (indices : int list) (row : row) : row =
 *)
 let projection (tbl : table) (fields : string list) : table = 
    (*On détermine les indices des colonnes de la liste des champs de projection*)
-   let indices = List.map (fun f -> match index_of f tbl.cols with 
-     | -1 -> failwith ("Champ inconnu : %s", f)  (*On a pas trouvé de match donc on soulève une erreur*)
+   let col_names_list = col_names tbl.cols in
+   let indices = List.map (fun f -> match index_of f col_names_list with 
+     | -1 -> failwith "Champ inconnu"  (*On a pas trouvé de match donc on soulève une erreur*)
      | i -> i        (*Si on a trouvé un match alors on renvoie l'indice*)
    ) fields in
 
@@ -313,21 +329,6 @@ let rec subsets (liste : 'a list) : 'a list list =
 *)
 let nonempty_subsets (lst : 'a list) : 'a list list =
   List.filter (fun s -> s <> []) (subsets lst)
-
-
-(*    
-    Type        : schema -> string list
-
-    @requires   : [schema] est une liste quelconque
-
-    @ensures    : Retourne la liste des noms de colonnes de [schema] dans
-                  le même ordre que [schema]. Retourne [[]] si [schema] est
-                  vide
-
-    @raises     : Aucune
-*)
-let col_names (schema : schema) : string list =
-  List.map fst schema
 
 
 (*  
