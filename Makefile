@@ -7,8 +7,8 @@
 FICHIER=projet.ml 
 BIN=test
 
-$(BIN): projet.cmo
-	ocamlc -g projet.cmo -o $@
+$(BIN): projet.cmo test.cmo
+	ocamlc -g projet.cmo test.cmo -o $@
 
 %.cmo : %.ml 
 	ocamlc -g -c $<
@@ -18,4 +18,4 @@ $(BIN): projet.cmo
 
 
 clean : 
-	rm -f projet.cmo projet.cmi $(BIN)
+	rm -f projet.cmo projet.cmi test.cmi test.cmo $(BIN)

@@ -58,6 +58,20 @@ type table = { cols : schema; rows : row list } ;;
 type fd = (string list) * (string list) ;;
 
 
+(*
+    Type        : schema -> string list
+
+    @requires   : [schema] est un schema d'une table
+
+    @ensures    : Retourne la liste des noms de colonnes de [schema] dans
+                  le même ordre que [schema]. Retourne [[]] si [schema] est
+                  vide
+
+    @raises     : Aucun
+*)
+let col_names (schema : schema) : string list =
+  List.map (fun (a, _) -> a) schema
+
 
 (*
    Type        : dbvalue -> coltype -> bool
@@ -70,7 +84,7 @@ type fd = (string list) * (string list) ;;
                - [VInt _]  est accepté ssi le dbtype vaut [TInt]
                - [VText _] est accepté ssi le dbtype vaut [TText]
 
-   @raises     : Aucune
+   @raises     : Aucun
 *)
 let value_matches_coltype (v : dbvalue) ((db_type, nullable) : coltype) : bool =
   match v with
@@ -93,7 +107,7 @@ let value_matches_coltype (v : dbvalue) ((db_type, nullable) : coltype) : bool =
                Retourne [false] si les longueurs diffèrent ou si une valeur
                est incompatible avec son type déclaré
 
-   @raises     : Aucune
+   @raises     : Aucun
 *)
 let rec row_matches_schema (row : row) (schema : schema) : bool = 
   match row, schema with 
@@ -113,11 +127,11 @@ let rec row_matches_schema (row : row) (schema : schema) : bool =
                Retourne [false] si tous les noms sont distincts, ou si
                [schema] est vide
 
-   @raises     : Aucune
+   @raises     : Aucun
 *)
 let has_duplicate_names (schema : schema) : bool = 
    (*On trie la liste pour obtenir une complexité finale moindre qu'un double parcours de liste qui serait en O(n²) alors qu'en triant puis en parcourant dans la liste triée on est en O(nlog(n))*)
-   match List.sort compare schema with 
+   match List.sort compare (col_names schema) with 
      | [] -> false
      | [_] -> false
      | liste_triee -> 
@@ -125,7 +139,7 @@ let has_duplicate_names (schema : schema) : bool =
          match l with 
           | x::y::reste when x = y -> true (*si deux éléments consécutifs de la liste triée sont égaux alors il y a doublon*)
           | _::reste ->  check_double reste (*sinon on avance dans la liste*)
-          | [_] | [] -> false (*Fin de la liste*)
+          | [] -> false (*Fin de la liste*)
        in check_double liste_triee
 
 
@@ -136,7 +150,7 @@ let has_duplicate_names (schema : schema) : bool =
 
    @ensures    : Retourne [true] ssi la table est valide
 
-   @raises     : Aucune
+   @raises     : Aucun
 *)
 let check_table (tbl : table) : bool = 
    not (has_duplicate_names tbl.cols)
@@ -152,13 +166,26 @@ let check_table (tbl : table) : bool =
 
    @ensures    : insère si possible la ligne [r] dans la table [tbl] sinon renvoie l'ancienne table sans ajout.
 
-   @raises     : Aucune
+   @raises     : Aucun
 *)
 let insert (tbl : table) (row : row) : table = 
    if row_matches_schema row tbl.cols  (*on vérifie si les valeurs de la ligne sont compatibles avec la table*)
    then { tbl with rows = tbl.rows @ [row] }
    else tbl
 ;;
+
+
+(* 
+   Type        : table -> bool
+
+   @requires   : [tbl] de type table
+
+   @ensures    : Renvoie [true] si la table est vide et [false] sinon
+
+   @raises     : Aucun
+*)
+let is_table_null (tbl : table) = 
+   tbl = {cols = []; rows = []} 
 
 
 (* 
@@ -169,17 +196,17 @@ let insert (tbl : table) (row : row) : table =
 
    @ensures    : effectue le produit cartésien des tables [tbl1] et [tbl2]
 
-   @raises     : Aucune
+   @raises     : Aucun
 *)
 let prod (tbl1 : table) (tbl2 : table) : table =
-  let combined_schema = tbl1.cols @ tbl2.cols in
-  (* Pour chaque ligne r1 de tbl1, on la concatène avec chaque ligne r2 de tbl2 *)
-  let combined_rows =
-    List.concat_map
-      (fun r1 -> List.map (fun r2 -> r1 @ r2) tbl2.rows)
-      tbl1.rows
-  in
-  { cols = combined_schema; rows = combined_rows }
+   let combined_schema = tbl1.cols @ tbl2.cols in
+   (* Pour chaque ligne r1 de tbl1, on la concatène avec chaque ligne r2 de tbl2 *)
+   let combined_rows =
+      List.concat_map
+         (fun r1 -> List.map (fun r2 -> r1 @ r2) tbl2.rows)
+         tbl1.rows
+   in
+   { cols = combined_schema; rows = combined_rows }
 ;;
 
 
@@ -192,7 +219,7 @@ let prod (tbl1 : table) (tbl2 : table) : table =
    @ensures    :  renvoie l'indice de [nom] dans la liste [l] si [nom] existe dans [l]
                   renvoie -1 si [nom] n'est pas dans [l]
 
-   @raises     : Aucune
+   @raises     : Aucun
 *)
 let index_of (nom : string) (l: string list) : int = 
    let rec idx_of nom l n =
@@ -237,21 +264,6 @@ let rec get_value_liste (liste : 'a list) (n : int) : 'a =
 *)
 let project_row (indices : int list) (row : row) : row =
   List.map (fun i -> get_value_liste row i) indices
-
-
-(*    
-    Type        : schema -> string list
-
-    @requires   : [schema] est une liste quelconque
-
-    @ensures    : Retourne la liste des noms de colonnes de [schema] dans
-                  le même ordre que [schema]. Retourne [[]] si [schema] est
-                  vide
-
-    @raises     : Aucune
-*)
-let col_names (schema : schema) : string list =
-  List.map fst schema
 
 
 (* 
@@ -306,7 +318,7 @@ let restrict (tbl : table) (f : row -> bool) : table=
 
    @ensures    : renvoie l'ensemble des sous-ensembles de liste
 
-   @raises     : Aucune 
+   @raises     : Aucun
 *)
 let rec subsets (liste : 'a list) : 'a list list = 
    match liste with 
@@ -342,12 +354,13 @@ let nonempty_subsets (lst : 'a list) : 'a list list =
                   colonnes nommées dans [fields], dans l'ordre de [fields].
                   Si un nom est absent du schéma, la valeur associée devient [VNull].
 
-    @raises     : Aucune 
+    @raises     : Aucun
 *)
-let values_for_cols (schema : string list) (row : dbvalue list) (fields : string list) : dbvalue list =
+let values_for_cols (schema : schema) (row : dbvalue list) (fields : string list) : dbvalue list =
+  let cols_name_list = col_names schema in
   List.map (fun name ->
     (* 1. On cherche l'indice d'un champs field*)
-    let i = index_of name schema in
+    let i = index_of name cols_name_list in
     (* 2. On teste si l'indice est valide (-1 signifie "pas trouvé") *)
     if i = -1 then       (*Ce cas ne devrait pas se produire si les préconditions sont respectées*)
       VNull (* On renvoie une valeur vide si le champ n'existe pas *)
@@ -364,14 +377,13 @@ let values_for_cols (schema : string list) (row : dbvalue list) (fields : string
                   tous les noms de [lhs] et [rhs] sont présents dans
                   [tbl.cols].
 
-    @ensures    : Retourne [true] ssi la dépendance fonctionnelle
-                  [lhs -> rhs] est satisfaite par les données de [tbl] :
+Aucun -> rhs] est satisfaite par les données de [tbl] :
                   pour toute paire de lignes (r1, r2), si r1 et r2
                   coïncident sur [lhs] alors elles coïncident sur [rhs].
                   Retourne [true] si [tbl.rows] est vide ou singleton
                   (condition universelle vacuellement vraie).
 
-    @raises     : Aucune
+    @raises     : Aucun
 *)
 let fd_holds (tbl : table) (lhs : string list) (rhs : string list) : bool =
   List.for_all (fun r1 ->
@@ -395,7 +407,7 @@ let fd_holds (tbl : table) (lhs : string list) (rhs : string list) : bool =
                   de longueur excessive
 *)
 let compute_deps (tbl : table) : fd list =
-   (*On récupère les noms de colonnes*)
+  (*On récupère les noms de colonnes*)
   let names = col_names tbl.cols in
   (*On génère tous les ensembles candidats possible de lhs*)
   let all_lhs = nonempty_subsets names in
@@ -415,21 +427,39 @@ let compute_deps (tbl : table) : fd list =
   ) all_lhs
 
 
+(*
+    Type        : table -> fd -> bool 
+
+    @requires   : [tbl] est une table valide au sens de [check_table]
+                  [(lhs, rhs)] de type fd
+                  
+    @ensures    : Renvoie [true] ssi aucun des sous ensembles strict et non vide de lhs n'est aussi une DF pour rhs 
+                  Renvoie [false] sinon
+ 
+    @raises     : Aucun
+*)
 let has_no_subset_df (tbl : table) ((lhs, rhs): fd) : bool =
    (*On prend les sous-ensembles non vides qui sont des potentiels FD*)
    let subset_potential_df_not_empty = nonempty_subsets lhs in
    (*On prend uniquement les sous-ensembles stricts*)
    let proper_subsets = List.filter (fun s -> s <> lhs) subset_potential_df_not_empty in
    (*On filtre pour garder uniquement les sous-ensembles qui sont des df*)
-   let subset_df = List.filter (fun s -> fd_holds tbl s rhs_name) proper_subsets
+   let subset_df = List.filter (fun s -> fd_holds tbl s rhs) proper_subsets
    in 
    (*si l'ensemble des sous-ensembles est vide alors on retourne true, sinon false*)
    subset_df = [] 
 
 
-(* [compute_elementary_deps tbl] retourne TOUTES les dépendances
-   fonctionnelles élémentaires trouvées en étudiant les données
-   présentes dans [tbl] *)
+(*
+    Type        : table -> fd list
+
+    @requires   : [tbl] est une table valide au sens de [check_table]
+                  [(lhs, rhs)] de type fd
+
+    @ensures    : Retourne toutes les dépendances fonctionnelles élémentaires trouvées en étudiant les données présentes dans [tbl]
+
+    @raises     : Aucun
+*)
 let compute_elementary_deps tbl = 
    (* 1. on récupère l'ensemble des DF *)
    let df_liste = compute_deps tbl in 
