@@ -5,7 +5,7 @@
 
   - les entiers représentés ici par TInt
   - les textes représentés ici par TText
- *)
+*)
 type dbtype =
   | TInt  (* type des entrées entières *)
   | TText (* type des entrées textes   *)
@@ -41,7 +41,7 @@ type schema = (string*coltype) list ;;
 
 
 (* Une ligne d'une table est une liste de valeurs.
- *)
+*)
 type row = dbvalue list ;;
 
 (* Une [table] est la donnée d'un schéma et d'une liste de lignes *)
@@ -54,7 +54,7 @@ type table = { cols : schema; rows : row list } ;;
    est une liste de nom de champs.
 
    La dépendance (lhs,rhs) représente bien évidement la dépendance lhs -> rhs. 
- *)
+*)
 type fd = (string list) * (string list) ;;
 
 
@@ -111,10 +111,10 @@ let value_matches_coltype (v : dbvalue) ((db_type, nullable) : coltype) : bool =
 *)
 let rec row_matches_schema (row : row) (schema : schema) : bool = 
   match row, schema with 
-     | [], [] -> true             (* on a autant de colonne que de valeur par ligne*)
-     | [], _ | _, [] -> false     (*Le nombre de colonne n'est pas le même*)
-     | v::reste_row, (_, col_type)::reste_schema ->
-       value_matches_coltype v col_type && row_matches_schema reste_row reste_schema
+  | [], [] -> true             (* on a autant de colonne que de valeur par ligne*)
+  | [], _ | _, [] -> false     (*Le nombre de colonne n'est pas le même*)
+  | v::reste_row, (_, col_type)::reste_schema ->
+      value_matches_coltype v col_type && row_matches_schema reste_row reste_schema
 
 
 (*  
@@ -131,16 +131,16 @@ let rec row_matches_schema (row : row) (schema : schema) : bool =
 *)
 let has_duplicate_names (schema : schema) : bool = 
    (*On trie la liste pour obtenir une complexité finale moindre qu'un double parcours de liste qui serait en O(n²) alors qu'en triant puis en parcourant dans la liste triée on est en O(nlog(n))*)
-   match List.sort compare (col_names schema) with 
-     | [] -> false
-     | [_] -> false
-     | liste_triee -> 
-       let rec check_double l =  
-         match l with 
-          | x::y::reste when x = y -> true (*si deux éléments consécutifs de la liste triée sont égaux alors il y a doublon*)
-          | _::reste ->  check_double reste (*sinon on avance dans la liste*)
-          | [] -> false (*Fin de la liste*)
-       in check_double liste_triee
+  match List.sort compare (col_names schema) with 
+  | [] -> false
+  | [_] -> false
+  | liste_triee -> 
+      let rec check_double l =  
+        match l with 
+        | x::y::reste when x = y -> true (*si deux éléments consécutifs de la liste triée sont égaux alors il y a doublon*)
+        | _::reste ->  check_double reste (*sinon on avance dans la liste*)
+        | [] -> false (*Fin de la liste*)
+      in check_double liste_triee
 
 
 (* 
@@ -153,15 +153,15 @@ let has_duplicate_names (schema : schema) : bool =
    @raises     : Aucun
 *)
 let check_table (tbl : table) : bool = 
-   not (has_duplicate_names tbl.cols)
-   && List.for_all (fun row -> row_matches_schema row tbl.cols) tbl.rows
+  not (has_duplicate_names tbl.cols)
+  && List.for_all (fun row -> row_matches_schema row tbl.cols) tbl.rows
 ;;
 
 
 (* 
    Type        : table -> row -> table
 
-   @requires   : [tbl] de type table
+   @requires   : [tbl] est une table valide au sens de check_table
                  [row] de type row
 
    @ensures    : insère si possible la ligne [r] dans la table [tbl] sinon renvoie l'ancienne table sans ajout.
@@ -169,44 +169,31 @@ let check_table (tbl : table) : bool =
    @raises     : Aucun
 *)
 let insert (tbl : table) (row : row) : table = 
-   if row_matches_schema row tbl.cols  (*on vérifie si les valeurs de la ligne sont compatibles avec la table*)
-   then { tbl with rows = tbl.rows @ [row] }
-   else tbl
+  if row_matches_schema row tbl.cols  (*on vérifie si les valeurs de la ligne sont compatibles avec la table*)
+  then { tbl with rows = tbl.rows @ [row] }
+  else tbl
 ;;
-
-
-(* 
-   Type        : table -> bool
-
-   @requires   : [tbl] de type table
-
-   @ensures    : Renvoie [true] si la table est vide et [false] sinon
-
-   @raises     : Aucun
-*)
-let is_table_null (tbl : table) = 
-   tbl = {cols = []; rows = []} 
 
 
 (* 
    Type        : table -> table -> table
 
-   @requires   : [tbl1] de type table
-                 [tbl2] de type table
+   @requires   : [tbl1] est une table valide au sens de check_table
+                 [tbl2] est une table valide au sens de check_table
 
    @ensures    : effectue le produit cartésien des tables [tbl1] et [tbl2]
 
    @raises     : Aucun
 *)
 let prod (tbl1 : table) (tbl2 : table) : table =
-   let combined_schema = tbl1.cols @ tbl2.cols in
+  let combined_schema = tbl1.cols @ tbl2.cols in
    (* Pour chaque ligne r1 de tbl1, on la concatène avec chaque ligne r2 de tbl2 *)
-   let combined_rows =
-      List.concat_map
-         (fun r1 -> List.map (fun r2 -> r1 @ r2) tbl2.rows)
-         tbl1.rows
-   in
-   { cols = combined_schema; rows = combined_rows }
+  let combined_rows =
+    List.concat_map
+      (fun r1 -> List.map (fun r2 -> r1 @ r2) tbl2.rows)
+      tbl1.rows
+  in
+  { cols = combined_schema; rows = combined_rows }
 ;;
 
 
@@ -222,14 +209,14 @@ let prod (tbl1 : table) (tbl2 : table) : table =
    @raises     : Aucun
 *)
 let index_of (nom : string) (l: string list) : int = 
-   let rec idx_of nom l n =
-      match l with 
-      | [] -> -1 (*Si on a aucun match alors on renvoie une valeur négative : -1*)
-      | title::reste -> 
-         if title = nom then n (*Si on a trouvé un match, on renvoie l'index*)
-         else idx_of nom reste (n+1) (*Sinon on regarde pour la valeur suivante*)
-   in 
-   idx_of nom l 0
+  let rec idx_of nom l n =
+    match l with 
+    | [] -> -1 (*Si on a aucun match alors on renvoie une valeur négative : -1*)
+    | title::reste -> 
+        if title = nom then n (*Si on a trouvé un match, on renvoie l'index*)
+        else idx_of nom reste (n+1) (*Sinon on regarde pour la valeur suivante*)
+  in 
+  idx_of nom l 0
 
 
 (* 
@@ -243,11 +230,11 @@ let index_of (nom : string) (l: string list) : int =
    @raises     : soulève l'erreur "Index out of range" si n est plus grand que la taille de la liste [liste]
 *)
 let rec get_value_liste (liste : 'a list) (n : int) : 'a =
-   match liste with 
-     | [] -> failwith "Index out of range"
-     | head::tail -> 
-         if n = 0 then head
-         else get_value_liste tail (n-1)
+  match liste with 
+  | [] -> failwith "Index out of range"
+  | head::tail -> 
+      if n = 0 then head
+      else get_value_liste tail (n-1)
 
 
 (* 
@@ -269,7 +256,7 @@ let project_row (indices : int list) (row : row) : row =
 (* 
    Type        : table -> string list -> table
 
-   @requires   : [tbl1] de type table
+   @requires   : [tbl1] est une table valide au sens de check_table
                  [fields] de type string list
 
    @ensures    : effectue la projection suivant la liste de champs [fields] de la table [tbl]
@@ -278,25 +265,25 @@ let project_row (indices : int list) (row : row) : row =
 *)
 let projection (tbl : table) (fields : string list) : table = 
    (*On détermine les indices des colonnes de la liste des champs de projection*)
-   let col_names_list = col_names tbl.cols in
-   let indices = List.map (fun f -> match index_of f col_names_list with 
-     | -1 -> failwith "Champ inconnu"  (*On a pas trouvé de match donc on soulève une erreur*)
-     | i -> i        (*Si on a trouvé un match alors on renvoie l'indice*)
-   ) fields in
+  let col_names_list = col_names tbl.cols in
+  let indices = List.map (fun f -> match index_of f col_names_list with 
+      | -1 -> failwith "Champ inconnu"  (*On a pas trouvé de match donc on soulève une erreur*)
+      | i -> i        (*Si on a trouvé un match alors on renvoie l'indice*)
+    ) fields in
 
    (*On récupère les colonnes de la table associées à ces indices*)
-   let new_cols = List.map (fun i -> get_value_liste tbl.cols i) indices in 
+  let new_cols = List.map (fun i -> get_value_liste tbl.cols i) indices in 
    (*On récupère les colonnes des rows associées à ces indices*)
-   let new_rows = List.map (project_row indices) tbl.rows in
+  let new_rows = List.map (project_row indices) tbl.rows in
    (*On renvoie la liste des colonnes projetés avec leur lignes lignes de valeurs associées*)
-   {cols = new_cols; rows = new_rows}
-   ;;
+  {cols = new_cols; rows = new_rows}
+;;
 
 
 (* 
    Type        : table -> (row -> bool) -> table
 
-   @requires   : [tbl] de type table
+   @requires   : [tbl] est une table valide au sens de check_table
                  [f] de type row -> bool
 
    @ensures    : effectue la restriction des données présentes
@@ -307,7 +294,7 @@ let projection (tbl : table) (fields : string list) : table =
    @raises     : Les exceptions soulevées par f le sont aussi pour cette fonction
 *)
 let restrict (tbl : table) (f : row -> bool) : table= 
-   {tbl with rows = List.filter f tbl.rows}
+  {tbl with rows = List.filter f tbl.rows}
 ;;
 
 
@@ -321,11 +308,11 @@ let restrict (tbl : table) (f : row -> bool) : table=
    @raises     : Aucun
 *)
 let rec subsets (liste : 'a list) : 'a list list = 
-   match liste with 
-     | [] -> [[]]
-     | x::xs -> 
-     let reste = subsets xs in
-     reste @ List.map (fun s -> x::s) reste 
+  match liste with 
+  | [] -> [[]]
+  | x::xs -> 
+      let reste = subsets xs in
+      reste @ List.map (fun s -> x::s) reste 
 
 
 (* 
@@ -360,14 +347,14 @@ let values_for_cols (schema : schema) (row : dbvalue list) (fields : string list
   let cols_name_list = col_names schema in
   List.map (fun name ->
     (* 1. On cherche l'indice d'un champs field*)
-    let i = index_of name cols_name_list in
+      let i = index_of name cols_name_list in
     (* 2. On teste si l'indice est valide (-1 signifie "pas trouvé") *)
-    if i = -1 then       (*Ce cas ne devrait pas se produire si les préconditions sont respectées*)
-      VNull (* On renvoie une valeur vide si le champ n'existe pas *)
-    else 
+      if i = -1 then       (*Ce cas ne devrait pas se produire si les préconditions sont respectées*)
+        VNull (* On renvoie une valeur vide si le champ n'existe pas *)
+      else 
       (* 3. On récupère la valeur dans la ligne row *)
-      get_value_liste row i
-  ) fields
+        get_value_liste row i
+    ) fields
 
 
 (*  
@@ -387,12 +374,12 @@ Aucun -> rhs] est satisfaite par les données de [tbl] :
 *)
 let fd_holds (tbl : table) (lhs : string list) (rhs : string list) : bool =
   List.for_all (fun r1 ->
-    List.for_all (fun r2 ->
-      if values_for_cols tbl.cols r1 lhs = values_for_cols tbl.cols r2 lhs
-      then values_for_cols tbl.cols r1 rhs = values_for_cols tbl.cols r2 rhs
-      else true
+      List.for_all (fun r2 ->
+          if values_for_cols tbl.cols r1 lhs = values_for_cols tbl.cols r2 lhs
+          then values_for_cols tbl.cols r1 rhs = values_for_cols tbl.cols r2 rhs
+          else true
+        ) tbl.rows
     ) tbl.rows
-  ) tbl.rows
 
 
 (*
@@ -414,17 +401,17 @@ let compute_deps (tbl : table) : fd list =
   
   List.concat_map (fun lhs ->
     (* On prépare les candidats à droite *)
-    let potential_rhs = List.filter (fun name -> not (List.mem name lhs)) names in
+      let potential_rhs = List.filter (fun name -> not (List.mem name lhs)) names in
     
     (*On filtre pour ne garder que les noms où la DF est vraie *)
-    let valid_rhs_names = List.filter (fun rhs_name -> 
-      fd_holds tbl lhs [rhs_name]
-    ) potential_rhs in
+      let valid_rhs_names = List.filter (fun rhs_name -> 
+          fd_holds tbl lhs [rhs_name]
+        ) potential_rhs in
     
     (*On mappe pour transformer chaque nom valide en format (lhs, [rhs]) que la fonction renvoie*)
-    List.map (fun rhs_name -> (lhs, [rhs_name])) valid_rhs_names
+      List.map (fun rhs_name -> (lhs, [rhs_name])) valid_rhs_names
 
-  ) all_lhs
+    ) all_lhs
 
 
 (*
@@ -440,14 +427,14 @@ let compute_deps (tbl : table) : fd list =
 *)
 let has_no_subset_df (tbl : table) ((lhs, rhs): fd) : bool =
    (*On prend les sous-ensembles non vides qui sont des potentiels FD*)
-   let subset_potential_df_not_empty = nonempty_subsets lhs in
+  let subset_potential_df_not_empty = nonempty_subsets lhs in
    (*On prend uniquement les sous-ensembles stricts*)
-   let proper_subsets = List.filter (fun s -> s <> lhs) subset_potential_df_not_empty in
+  let proper_subsets = List.filter (fun s -> s <> lhs) subset_potential_df_not_empty in
    (*On filtre pour garder uniquement les sous-ensembles qui sont des df*)
-   let subset_df = List.filter (fun s -> fd_holds tbl s rhs) proper_subsets
-   in 
+  let subset_df = List.filter (fun s -> fd_holds tbl s rhs) proper_subsets
+  in 
    (*si l'ensemble des sous-ensembles est vide alors on retourne true, sinon false*)
-   subset_df = [] 
+  subset_df = [] 
 
 
 (*
@@ -462,9 +449,9 @@ let has_no_subset_df (tbl : table) ((lhs, rhs): fd) : bool =
 *)
 let compute_elementary_deps (tbl : table) : fd list = 
    (* 1. on récupère l'ensemble des DF *)
-   let df_liste = compute_deps tbl in 
+  let df_liste = compute_deps tbl in 
    (* 2. On filtre la liste des DF en ne gardant uniquement celles dont aucun de ses sous-ensembles n'est une DF *)
-   List.filter (fun df -> has_no_subset_df tbl df) df_liste
+  List.filter (fun df -> has_no_subset_df tbl df) df_liste
 ;;
 
 
@@ -472,58 +459,171 @@ let compute_elementary_deps (tbl : table) : fd list =
     Type        : table -> string list -> bool
 
     @requires   : [tbl] est une table valide au sens de [check_table]
-                  [lhs] une liste de nom de colonnes de tbl
+       [lhs] une liste de nom de colonnes de tbl
 
     @ensures    : Retourne [true] si [lhs] est une clée candidate
 
     @raises     : Aucun
 *)
 let is_key (tbl : table) (lhs : string list) : bool = 
-   fd_holds tbl lhs (col_names tbl.cols)
-
-let rec appartient elmt l = 
-   match l with 
-      | [] -> false
-      | head::tail -> head=elmt || appartient elmt tail
+  fd_holds tbl lhs (col_names tbl.cols)
 
 
-(* Renvoie [true] si l1 est inclu dans l2 *)
+(*
+    Type        : 'a -> 'a list -> bool
+
+    @requires   : Aucun
+
+    @ensures    : Retourne [true] si [elmt] est un élement de [l]
+
+    @raises     : Aucun
+*)
+let rec appartient (elmt :'a) (l : 'a list) : bool = 
+  match l with 
+  | [] -> false
+  | head::tail -> head=elmt || appartient elmt tail
+
+
+
+(*
+    Type        : string list -> string list -> bool
+
+    @requires   : Aucun
+
+    @ensures    : Renvoie [true] si l1 est inclu dans l2
+    
+    @raises     : Aucun
+*)
 let is_inclued (l1: string list) (l2 : string list) : bool = 
-   List.for_all (fun elmt -> appartient elmt l2) l1
+  List.for_all (fun elmt -> appartient elmt l2) l1
 
 
+(*
+    Type        : table -> string list list
+
+    @requires   : [tbl] une table valide au sens de check_table
+
+    @ensures    : Renvoie la liste des clées candidates de la table [tbl]
+    
+    @raises     : [Stack_overflow] (propagé depuis [compute_deps]) si tbl.cols est
+                  de longueur excessive
+*)
 let candidate_keys (tbl : table) : string list list = 
-   let col_names_list = col_names tbl.cols in 
+  let col_names_list = col_names tbl.cols in 
    (* On récupère toute les df = (lhs, rhs)*)
-   let all_deps = compute_deps tbl in
+  let all_deps = compute_deps tbl in
    (* On récupère l'ensemble des lhs*)
-   let all_lhs = List.map (fun (lhs, _) -> lhs) all_deps in 
+  let all_lhs = List.map (fun (lhs, _) -> lhs) all_deps in 
    (* On garde uniquement celles qui détermine toutes les colonnes *)
-   let maybe_candidate_keys = List.filter (fun lhs -> is_key tbl lhs) all_lhs
+  let maybe_candidate_keys = List.filter (fun lhs -> is_key tbl lhs) all_lhs in
    (* On garde uniquement les candidates minimales qui sont en faite les clées candidates *)
-   let candidates = List.filter ( fun m_key -> 
+  let candidates = List.filter ( fun m_key -> 
       (* On regarde si ce n'est pas une augmentation d'une autre candidate de clée candidates *)
-      List.for_all (fun other_key -> other_key = m_key || not is_inclued other_key m_key) maybe_candidates_keys
-   ) maybe_candidates_keys in 
-   if candidates = [] then 
-      [col_names_list]
-   else 
-      candidates
+      List.for_all (fun other_key -> other_key = m_key || not (is_inclued other_key m_key)) maybe_candidate_keys
+    ) maybe_candidate_keys in 
+  if candidates = [] then 
+    [col_names_list]
+  else 
+    candidates
 
 
-(* [normalization_level tbl] retourne le niveau de normalisation de
-   [tbl] sous forme d'un entier.  *)
-let normalization_level (tbl : table) : int = failwith "TODO" ;;
-   (* Toute les tables valides sont 1FN au minimum de par l'implémentation de dbtype et dbvalue  *)
-   let level = 1 in 
-   (* donc on a juste à tester les conditions pour les formes normales 2FN et 3FN en incrémentant de la valeur de retour à chaque condition rempli et s'arrêter dès qu'une condition d'une forme normale n'est pas respectée.  *)
-   let clees_candidates = candidate_keys tbl in 
+(*
+    Type        : string list -> string list list -> bool 
+
+    @requires   : [a] est un nom de colonne
+                  [keys] est la liste des clés candidates de la table
+
+    @ensures    : Retourne [true] ssi [a] appartient à au moins une clée candidate
+                  Retourne [false] sinon 
+    
+    @raises     : Aucun
+*)
+let is_prime (a : string) (keys : string list list) : bool =
+  not (List.for_all (fun k -> not (appartient a k)) keys)
+
+
+(*
+    Type        : string list -> string list list -> bool 
+
+    @requires   : [lhs] est un ensemble de noms de colonnes 
+                  [keys] est la liste des clés candidates de la table
+
+    @ensures    : Retourne [true] ssi [lhs] contient au moins une clée candidate (au sens de l'inclusion)
+                  Retourne [false] si aucune clée candidate n'est incluse dans [lhs]
+    
+    @raises     : Aucun
+*)
+let is_superkey (lhs : string list) (keys : string list list) : bool =
+  not (List.for_all (fun k -> not (is_inclued k lhs)) keys)
 
 
 
-(* Donc pour qu'une fonction soit 2FN il faut que tout attribut non clée dépende de l'intégralité de la clé et pas d'un sous ensemble de la clée
--> on peut utiliser has_subset_df je pense 
+(*
+    Type        : table -> string list list -> fd list -> bool 
 
-Pour la 3FN il faut en plus qu'il n'ait pas d'attribut n'appartenant pas à la clé qui dépende de la clé par transitivité (pas de dépendance par transititvité) ou il n'existe pas de DF (lhs, rhs) tq lhs inter clé = [] *)
+    @requires   : [tbl] est une table valide au sens de check_table
+                  [keys] est la liste des clés candidates de la table
+
+    @ensures    : Retourne [true] si tbl est en 2FN
+                  Retourne [false] sinon
+    
+    @raises     : Aucun
+*)
+let is_2nf (tbl : table) (keys : string list list) (e_deps : fd list) : bool =
+  (* On vérifie si TOUTES les DF respectent la règle *)
+  List.for_all (fun (lhs, rhs) ->
+      let a = List.hd rhs in (* On sait que le rhs est unitaire *) 
+      (* Si 'a' est un morceau de clé, la DF ne peut pas violer la 2NF *)
+      if is_prime a keys then true 
+      else
+      (* Si 'a' n'est pas une clé, alors lhs ne doit être inclus dans AUCUNE clé *)
+        List.for_all (fun k -> 
+            not (is_inclued lhs k && lhs <> k)
+          ) keys
+    ) e_deps
 
 
+(*
+    Type        : string list list -> fd list -> bool 
+
+    @requires   : [keys] est la liste des clés candidates d'une table
+                  [e_deps] est la liste des DF élémentaire de la table
+
+    @ensures    : Retourne [true] si tbl est en 3FN
+                  Retourne [false] sinon
+    
+    @raises     : Aucun
+*)
+let check_3nf (keys : string list list) (e_deps : fd list) : bool =
+  List.for_all (fun (lhs, rhs) ->
+      (* On prend l'attribut à droite *)
+      let a = List.hd rhs in 
+      (* Condition 1 : X est super-clé *)
+      if is_superkey lhs keys then true       
+      (* Condition 2 : A est un attribut clé *)
+      else if is_prime a keys then true      
+      (* Si une des condition n'est pas vérifiée *)
+      else false
+    ) e_deps
+
+
+
+(*
+    Type        : table -> int
+
+    @requires   : [keys] est la liste des clés candidates d'une table
+                  [e_deps] est la liste des DF élémentaire de la table
+
+    @ensures    : Retourne le niveau de normalisation de [tbl] sous forme d'un entier. 
+    
+    @raises     : [Stack_overflow] (propagé depuis [compute_elementary_deps]) si le nombre de colonnes de [tbl] est excessif
+*)
+let normalization_level (tbl : table) : int =
+   (* on a juste à tester les conditions pour les formes normales 2FN et 3FN en incrémentant de la valeur de retour à chaque condition rempli et s'arrêter dès qu'une condition d'une forme normale n'est pas respectée. *)
+  let clees_candidates = candidate_keys tbl in 
+  let e_deps = compute_elementary_deps tbl in
+  if not (is_2nf tbl clees_candidates e_deps)  then 1 (* On s'arrête à la 1NF *)
+  else
+    (* 2. Test de la 3NF *)
+  if check_3nf clees_candidates e_deps then 3
+  else 2
