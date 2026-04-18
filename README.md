@@ -15,8 +15,11 @@ The system represents a table as a record containing a schema and data rows.
 * **Schema**: A list of pairs defining column names, types, and nullability constraints.
 
 ```ocaml
-type dbvalue = VInt of int | VText of string | VNull 
+type dbvalue = VInt of int | VText of string | VNull
+type dbtype = TInt | TText
+type coltype = dbtype * bool
 type row = dbvalue list
+type schema = (string*coltype) list 
 type table = { cols : schema; rows : row list }
 ```
 
