@@ -1,4 +1,4 @@
-# 🗄️ OCaml Relational Database & Normalization Engine
+# 🐪🗄️ OCaml Relational Database & Normalization Engine
 
 ## 📖 Project Overview
 This project is a relational database management system built entirely in **OCaml** as part of a functional programming module. It provides a complete engine for manipulating relational data and performing automated logical analysis to evaluate a table's **normalization level** (1NF, 2NF, and 3NF).
